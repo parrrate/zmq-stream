@@ -1,0 +1,9 @@
+[package]
+name = "zmq-stream"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-io = "1.13.0"
+futures-util = { version = "0.3.29", features = ["sink"] }
+zmq = { version = "0.10", default-features = false }
