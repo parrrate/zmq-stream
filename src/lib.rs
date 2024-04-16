@@ -1,19 +1,18 @@
-use std::{os::fd::RawFd, pin::Pin, task::Poll};
+use std::{pin::Pin, task::Poll};
 
 use async_io::Async;
-use futures_util::{Sink, Stream};
+use futures_core::Stream;
+use futures_sink::Sink;
 
 pub struct ZmqStream {
-    socket: zmq::Socket,
-    aio: Async<RawFd>,
+    aio: Async<zmq::Socket>,
     buffer: Option<Vec<u8>>,
 }
 
 impl ZmqStream {
     pub fn new(socket: zmq::Socket) -> std::io::Result<Self> {
         Ok(Self {
-            aio: Async::new(socket.get_fd()?)?,
-            socket,
+            aio: Async::new(socket)?,
             buffer: None,
         })
     }
@@ -36,7 +35,7 @@ impl Stream for ZmqStream {
         if let Err(e) = self.setup_listener(cx) {
             return Poll::Ready(Some(Err(e)));
         }
-        match self.socket.recv_bytes(zmq::DONTWAIT) {
+        match self.aio.as_ref().recv_bytes(zmq::DONTWAIT) {
             Err(zmq::Error::EAGAIN) => Poll::Pending,
             r => Poll::Ready(Some(r.map_err(Into::into))),
         }
@@ -68,7 +67,7 @@ impl Sink<Vec<u8>> for ZmqStream {
             return Poll::Ready(Err(e));
         }
         if let Some(ref msg) = self.buffer {
-            let poll = match self.socket.send(msg.clone(), zmq::DONTWAIT) {
+            let poll = match self.aio.as_ref().send(msg.clone(), zmq::DONTWAIT) {
                 Err(zmq::Error::EAGAIN) => return Poll::Pending,
                 r => Poll::Ready(r.map_err(Into::into)),
             };
